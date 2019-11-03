@@ -1,56 +1,70 @@
 
 #include "array"
-#include <cassert>
+#include <type_traits>
 
 constexpr int array_size = 8;
-using array_type = int;
+using element_t = int;
 
+struct ref{};
 
-std::array<array_type,array_size> origin;
-const std::array<array_type,array_size>& corigin = origin;
-
-void foo( array_type (&ar)[array_size] )
-{
-    ar[0] = 42; 
+ref foo( element_t (&ar)[array_size] ){
+    return {};
 }
 
-void foo( const array_type (&ar)[array_size] )
-{
-    assert( &ar == &corigin._M_elems );
+struct const_ref{};
+
+const_ref foo( const element_t (&ar)[array_size] ){
+    return {};
 }
 
-void foo( array_type (*ar)[array_size] )
-{
-    *ar[0] = 21;
+struct pointer {};
+
+pointer foo( element_t (*ar)[array_size] ){
+    return {};
 }
 
-void foo( const array_type (*ar)[array_size] )
-{
-    assert( ar == &corigin._M_elems );
+struct const_pointer{};
+
+const_pointer foo( const element_t (*ar)[array_size] ){
+    return {};
 }
 
-void foo( array_type (&&ar)[array_size] )
-{
-    ar[0] = 84; 
+struct rvalue_ref{};
+
+rvalue_ref foo( element_t (&&ar)[array_size] ){
+    return {};
+}
+
+template<typename Expected, typename Actual>
+void assert_type_is(Actual &&) {
+    static_assert(std::is_same_v<Expected, Actual>, "Types are not the same");
 }
 
 int main()
 {
-    origin[0] = 12;             
-    assert( origin[0] == 12 );
-
-    foo( origin.c_array() );    
-    assert( origin[0] == 42 );
-
-    foo( corigin.c_array() );
-
-    foo( &origin.c_array() );
-    assert( origin[0] == 21 );
-
-    foo( &corigin.c_array() ); 
-
-    foo( std::array<array_type,array_size>{ 0,1,2,3,4,5,6,7 }.c_array() );
-    assert( origin[0] == 21 );
+    using array_t = std::array<element_t, array_size>;
+    {
+        array_t arr = {0};
+        assert_type_is<ref>(foo(arr.c_array()));
+        assert_type_is<pointer>(foo(&arr.c_array()));
+    }
+    {
+        const array_t arr = {0};
+        assert_type_is<const_ref>(foo(arr.c_array()));
+        assert_type_is<const_pointer>(foo(&arr.c_array()));
+    }
+    {
+        auto get_arr = []()->array_t{
+            return {0};
+        };
+        assert_type_is<rvalue_ref>(foo(get_arr().c_array()));
+    }
+    {
+        auto get_arr = []()->const array_t{
+            return {0};
+        };
+        assert_type_is<const_ref>(foo(get_arr().c_array()));
+    }
 
     return 0;
 }
